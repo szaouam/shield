@@ -4,67 +4,44 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"errors"
-	"io"
 	"strings"
 
 	"golang.org/x/crypto/blowfish"
 	"golang.org/x/crypto/twofish"
 )
 
-type Crypter struct {
-	Key             []byte
-	Encrypt         func(input io.Reader, output io.Writer) error
-	Decrypt         func(input io.Reader, output io.Writer) error
-	CipherBlock     cipher.Block
-	CipherBlockSize int
-}
-
-func NewCrypter(enctype string, key string) (*Crypter, error) {
-	crypter := Crypter{}
-	crypter.Key = []byte(key)
+func Stream(enctype string, key string, iv string) (cipher.Stream, cipher.Stream, error) {
 	// cipher-mode combinations included so far are:
 	// aes-cfb, blowfish-cfb, twofish-cfb
 	cipherName := strings.Split(enctype, "-")[0]
 	mode := strings.Split(enctype, "-")[1]
 
+	var err error
+	var block cipher.Block
+
 	switch cipherName {
 	// Was originally going to specify aes128 or aes256, but the keysize determines
 	// which is used.
-	case "aes":
-		block, err := aes.NewCipher(crypter.Key)
-		if err != nil {
-			return nil, err
-		}
-		crypter.CipherBlock = block
-		crypter.CipherBlockSize = aes.BlockSize
+	case "aes128", "aes256":
+		block, err = aes.NewCipher([]byte(key))
 	case "blowfish":
-		block, err := blowfish.NewCipher(crypter.Key)
-		if err != nil {
-			return nil, err
-		}
-		crypter.CipherBlock = block
-		crypter.CipherBlockSize = blowfish.BlockSize
+		block, err = blowfish.NewCipher([]byte(key))
 	case "twofish":
-		block, err := twofish.NewCipher(crypter.Key)
-		if err != nil {
-			return nil, err
-		}
-		crypter.CipherBlock = block
-		crypter.CipherBlockSize = aes.BlockSize
+		block, err = twofish.NewCipher([]byte(key))
 	default:
-		return nil, errors.New("Invalid cipher " + cipherName + " specified")
+		return nil, nil, errors.New("Invalid cipher " + cipherName + " specified")
+	}
+
+	if err != nil {
+		return nil, nil, err
 	}
 
 	switch mode {
 	case "cfb":
-		crypter.Encrypt = func(input io.Reader, output io.Writer) error {
-			return CFBEncrypt(input, output, &crypter)
-		}
-		crypter.Decrypt = func(input io.Reader, output io.Writer) error {
-			return CFBDecrypt(input, output, &crypter)
-		}
+		return cipher.NewCFBEncrypter(block, []byte(iv)), cipher.NewCFBDecrypter(block, []byte(iv)), nil
+	case "ofb":
+		return cipher.NewOFB(block, []byte(iv)), cipher.NewOFB(block, []byte(iv)), nil
 	default:
-		return nil, errors.New("Invalid encryption mode " + cipherName + " specified")
+		return nil, nil, errors.New("Invalid encryption mode " + cipherName + " specified")
 	}
-	return &crypter, nil
 }

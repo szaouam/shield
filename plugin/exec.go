@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"syscall"
 
+	"crypto/cipher"
 	"github.com/mattn/go-shellwords"
 	"github.com/starkandwayne/shield/crypter"
 )
@@ -30,40 +31,34 @@ func ExecWithOptions(opts ExecOptions) error {
 	}
 	DEBUG("Executing '%s' with arguments %v", cmdArgs[0], cmdArgs[1:])
 
-	//var encStdinReader, encStdoutReader io.Reader
-	//var encStdinWriter, encStdoutWriter io.Writer
+	// some liberties will be taken here.  hang on!
+	keyRaw := "\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD"
+	ivRaw := "\xCA\xFE\xBA\xBE\xAB\xAD\x1D\xEA"
+	ivRaw = keyRaw
 
-	var encStdoutReader io.Reader
-	var encStdoutWriter io.Writer
+	encStream, decStream, err := crypter.Stream("twofish-cfb", keyRaw, ivRaw)
 
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	if opts.Stdout != nil {
-		encStdoutReader, encStdoutWriter = io.Pipe()
-		cmd.Stdout = encStdoutWriter
+		cmd.Stdout = cipher.StreamWriter{
+			S: encStream,
+			W: opts.Stdout,
+		}
 	}
 	if opts.Stderr != nil {
 		cmd.Stderr = opts.Stderr
 	}
 	if opts.Stdin != nil {
 		cmd.Stdin = opts.Stdin
-		//		encStdinReader, encStdinWriter = io.Pipe()
+		cmd.Stdin = cipher.StreamReader{
+			S: decStream,
+			R: opts.Stdin,
+		}
 	}
 
 	if len(opts.ExpectRC) == 0 {
 		opts.ExpectRC = []int{0}
 	}
-
-	go func() {
-		outCrypter, err := crypter.NewCrypter("blowfish-cfb", "\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD")
-		if err != nil {
-			panic(err)
-			//return ExecFailure{Err: fmt.Sprintf("Could not initiate encryption for '%s': %s", opts.Cmd, err.Error())}
-		}
-		err = outCrypter.Encrypt(encStdoutReader, opts.Stdout)
-		if err != nil {
-			panic(err)
-		}
-	}()
 
 	err = cmd.Run()
 	if err != nil {
