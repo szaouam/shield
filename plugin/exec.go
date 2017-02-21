@@ -2,10 +2,13 @@ package plugin
 
 import (
 	"fmt"
-	"github.com/mattn/go-shellwords"
+	"io"
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/mattn/go-shellwords"
+	"github.com/starkandwayne/shield/crypter"
 )
 
 const NOPIPE = 0
@@ -13,8 +16,8 @@ const STDIN = 1
 const STDOUT = 2
 
 type ExecOptions struct {
-	Stdout   *os.File
-	Stdin    *os.File
+	Stdout   io.Writer
+	Stdin    io.Reader
 	Stderr   *os.File
 	Cmd      string
 	ExpectRC []int
@@ -27,22 +30,42 @@ func ExecWithOptions(opts ExecOptions) error {
 	}
 	DEBUG("Executing '%s' with arguments %v", cmdArgs[0], cmdArgs[1:])
 
+	//var encStdinReader, encStdoutReader io.Reader
+	//var encStdinWriter, encStdoutWriter io.Writer
+
+	var encStdoutReader io.Reader
+	var encStdoutWriter io.Writer
+
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	if opts.Stdout != nil {
-		cmd.Stdout = opts.Stdout
+		encStdoutReader, encStdoutWriter = io.Pipe()
+		cmd.Stdout = encStdoutWriter
 	}
 	if opts.Stderr != nil {
 		cmd.Stderr = opts.Stderr
 	}
 	if opts.Stdin != nil {
 		cmd.Stdin = opts.Stdin
+		//		encStdinReader, encStdinWriter = io.Pipe()
 	}
 
 	if len(opts.ExpectRC) == 0 {
 		opts.ExpectRC = []int{0}
 	}
 
-	err = cmd.Run()
+	returnChan := make(chan error)
+	go func(chan error) {
+		returnChan <- cmd.Run()
+	}(returnChan)
+
+	outCrypter, err := crypter.NewCrypter("blowfish-cfb", "AES256Key-32Characters1234567890")
+	if err != nil {
+		return ExecFailure{Err: fmt.Sprintf("Could not initiate encryption for '%s': %s", opts.Cmd, err.Error())}
+	}
+	err = outCrypter.Encrypt(encStdoutReader, opts.Stdout)
+
+	err = <-returnChan
+
 	if err != nil {
 		// make sure we got an Exit error
 		if exitErr, ok := err.(*exec.ExitError); ok {
@@ -78,6 +101,5 @@ func Exec(cmdString string, flags int) error {
 	if flags&STDIN == STDIN {
 		opts.Stdin = os.Stdin
 	}
-
 	return ExecWithOptions(opts)
 }
