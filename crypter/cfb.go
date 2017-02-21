@@ -2,7 +2,7 @@ package crypter
 
 import (
 	"crypto/cipher"
-	"crypto/rand"
+	//	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -11,12 +11,13 @@ import (
 func CFBEncrypt(input io.Reader, output io.Writer, crypter *Crypter) error {
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
-	iv := make([]byte, crypter.CipherBlockSize)
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return err
-	}
+	//	iv := make([]byte, crypter.CipherBlockSize)
+	//	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	//		return err
+	//	}
+	iv := []byte("\xCA\xFE\xBA\xBE\xAB\xAD\x1D\xEA")
 
-	io.WriteString(output, hex.EncodeToString(iv))
+	//io.WriteString(output, hex.EncodeToString(iv))
 	// Initiate the stream here, then encrypt the file in crypter.CipherBlockSize increments
 	stream := cipher.NewCFBEncrypter(crypter.CipherBlock, iv)
 	for {

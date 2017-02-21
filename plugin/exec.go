@@ -53,19 +53,19 @@ func ExecWithOptions(opts ExecOptions) error {
 		opts.ExpectRC = []int{0}
 	}
 
-	returnChan := make(chan error)
-	go func(chan error) {
-		returnChan <- cmd.Run()
-	}(returnChan)
+	go func() {
+		outCrypter, err := crypter.NewCrypter("blowfish-cfb", "\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD")
+		if err != nil {
+			panic(err)
+			//return ExecFailure{Err: fmt.Sprintf("Could not initiate encryption for '%s': %s", opts.Cmd, err.Error())}
+		}
+		err = outCrypter.Encrypt(encStdoutReader, opts.Stdout)
+		if err != nil {
+			panic(err)
+		}
+	}()
 
-	outCrypter, err := crypter.NewCrypter("blowfish-cfb", "AES256Key-32Characters1234567890")
-	if err != nil {
-		return ExecFailure{Err: fmt.Sprintf("Could not initiate encryption for '%s': %s", opts.Cmd, err.Error())}
-	}
-	err = outCrypter.Encrypt(encStdoutReader, opts.Stdout)
-
-	err = <-returnChan
-
+	err = cmd.Run()
 	if err != nil {
 		// make sure we got an Exit error
 		if exitErr, ok := err.(*exec.ExitError); ok {
