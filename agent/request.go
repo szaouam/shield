@@ -23,6 +23,9 @@ type Request struct {
 	StorePlugin    string `json:"store_plugin"`
 	StoreEndpoint  string `json:"store_endpoint"`
 	RestoreKey     string `json:"restore_key"`
+	EncryptionMode string `json:"encryption_mode"`
+	EncryptionKey  string `json:"encryption_key"`
+	EncryptionIV   string `json:"encryption_iv"`
 }
 
 func ParseRequestValue(value []byte) (*Request, error) {

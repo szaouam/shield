@@ -40,6 +40,9 @@ type WorkerRequest struct {
 	StorePlugin    string `json:"store_plugin"`
 	StoreEndpoint  string `json:"store_endpoint"`
 	RestoreKey     string `json:"restore_key"`
+	EncryptionMode string `json:"encryption_mode"`
+	EncryptionKey  string `json:"encryption_key"`
+	EncryptionIV   string `json:"encryption_iv"`
 }
 
 func worker(id uint, privateKeyFile string, work chan *db.Task, updates chan WorkerUpdate) {
@@ -103,6 +106,9 @@ func worker(id uint, privateKeyFile string, work chan *db.Task, updates chan Wor
 			StorePlugin:    t.StorePlugin,
 			StoreEndpoint:  t.StoreEndpoint,
 			RestoreKey:     t.RestoreKey,
+			EncryptionMode: "aes256-ctr",
+			EncryptionKey:  "\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD\xDE\xAD\xBE\xEF\xDE\xCA\xFB\xAD",
+			EncryptionIV:   "\xCA\xFE\xBA\xBE\xAB\xAD\x1D\xEA\xCA\xFE\xBA\xBE\xAB\xAD\x1D\xEA",
 		})
 		if err != nil {
 			updates <- WorkerUpdate{Task: t.UUID, Op: OUTPUT,

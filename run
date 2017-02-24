@@ -1,0 +1,50 @@
+#!/bin/bash
+set -u
+
+export LC_ALL=C
+
+export DEBUG=1
+ENDPOINT='{"data":"i am secret information"}'
+PLUGIN=dummy
+
+KEY=DEADBEEFDECAFBADDEADBEEFDECAFBADDEADBEEFDECAFBADDEADBEEFDECAFBAD
+IV=CAFEBABEABAD1DEACAFEBABEABAD1DEA
+
+#./$PLUGIN validate -e "${ENDPOINT}"
+./$PLUGIN backup -e "${ENDPOINT}" > out.enc
+
+echo
+echo "----------------------"
+echo
+
+(echo "i am secret information" | \
+ openssl enc -aes-256-ctr -nosalt \
+   -nopad -K $KEY -iv $IV) > out.ssl
+
+echo "from out.ssl (via openssl):"
+echo "----------------------"
+openssl enc -aes-256-ctr -d -nosalt \
+   -nopad -K $KEY -iv $IV < out.ssl
+echo "----------------------"
+
+echo
+echo "from out.enc (via openssl):"
+echo "----------------------"
+openssl enc -aes-256-ctr -d -nosalt \
+   -nopad -K $KEY -iv $IV < out.enc | od -a
+echo "----------------------"
+
+echo "SHA sum of out.*:"
+echo "----------------------"
+shasum out.*
+echo "----------------------"
+
+echo
+echo "restore op:"
+echo "----------------------"
+cat out.enc | ./$PLUGIN restore -e '{"file":"restored.out"}'
+cat restored.out
+echo "----------------------"
+
+echo "ALL DONE!"
+exit 0
