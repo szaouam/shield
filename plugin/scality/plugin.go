@@ -321,6 +321,7 @@ func (scal ScalityConnectionInfo) genBackupPath() string {
 }
 
 func (scal ScalityConnectionInfo) Connect() (*minio.Client, error) {
+	var scalityClient *minio.Client
 	scalityClient, err := minio.NewV2(scal.Host, scal.AccessKey, scal.SecretKey, false)
 	if err != nil {
 		return nil, err
