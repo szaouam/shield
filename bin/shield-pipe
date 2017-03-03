@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # shield-pipe - Command Pipelining for Shield Plugins
-#
+# HELOLOLOLOLOLOLO
 # This script inspects its environments and then orchestrates two
 # processes (the store and target plugins) in the correct order,
 # with the correct arguments.
